@@ -5,6 +5,7 @@ import torch.distributed as dist
 import collections
 import logging
 
+
 def get_area(pos):
     """
     Args
@@ -19,6 +20,7 @@ def get_area(pos):
     width = pos[:, :, 1] - pos[:, :, 0]
     area = height * width
     return area
+
 
 def get_relative_distance(pos):
     """
@@ -60,13 +62,13 @@ def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
-def load_state_dict(state_dict_path, loc='cpu'):
+def load_state_dict(state_dict_path, loc="cpu"):
     state_dict = torch.load(state_dict_path, map_location=loc)
     # Change Multi GPU to single GPU
     original_keys = list(state_dict.keys())
     for key in original_keys:
         if key.startswith("module."):
-            new_key = key[len("module."):]
+            new_key = key[len("module.") :]
             state_dict[new_key] = state_dict.pop(key)
     return state_dict
 
@@ -82,7 +84,7 @@ def set_global_logging_level(level=logging.ERROR, prefices=[""]):
           Default is `[""]` to match all active loggers.
           The match is a case-sensitive `module_name.startswith(prefix)`
     """
-    prefix_re = re.compile(fr'^(?:{ "|".join(prefices) })')
+    prefix_re = re.compile(rf'^(?:{ "|".join(prefices) })')
     for name in logging.root.manager.loggerDict:
         if re.match(prefix_re, name):
             logging.getLogger(name).setLevel(level)
@@ -101,13 +103,11 @@ def get_iou(anchors, gt_boxes):
     K = gt_boxes.size(0)
 
     gt_boxes_area = (
-        (gt_boxes[:, 2] - gt_boxes[:, 0] + 1) *
-        (gt_boxes[:, 3] - gt_boxes[:, 1] + 1)
+        (gt_boxes[:, 2] - gt_boxes[:, 0] + 1) * (gt_boxes[:, 3] - gt_boxes[:, 1] + 1)
     ).view(1, K)
 
     anchors_area = (
-        (anchors[:, 2] - anchors[:, 0] + 1) *
-        (anchors[:, 3] - anchors[:, 1] + 1)
+        (anchors[:, 2] - anchors[:, 0] + 1) * (anchors[:, 3] - anchors[:, 1] + 1)
     ).view(N, 1)
 
     boxes = anchors.view(N, 1, 4).expand(N, K, 4)

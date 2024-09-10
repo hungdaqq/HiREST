@@ -18,10 +18,11 @@ from utils import load_state_dict, set_global_logging_level
 
 proj_dir = Path(__file__).resolve().parent.parent
 
+
 class TrainerBase(object):
     def __init__(self, args):
         self.args = args
-        
+
         self.verbose = True
         if self.args.distributed:
             if self.args.gpu != 0:
@@ -32,14 +33,19 @@ class TrainerBase(object):
 
     def create_optimizer_and_scheduler(self):
         if self.verbose:
-            print('Building Optimizer')
+            print("Building Optimizer")
 
         lr_scheduler = None
 
-        if 'adamw' in self.args.optim:
+        if "adamw" in self.args.optim:
             from transformers.optimization import get_linear_schedule_with_warmup
+
             batch_per_epoch = len(self.train_loader)
-            t_total = batch_per_epoch // self.args.gradient_accumulation_steps * self.args.epochs
+            t_total = (
+                batch_per_epoch
+                // self.args.gradient_accumulation_steps
+                * self.args.epochs
+            )
             warmup_steps = self.args.warmup_steps
             if warmup_steps < 1:
                 warmup_ratio = warmup_steps
@@ -49,45 +55,43 @@ class TrainerBase(object):
             if self.verbose:
                 print("Batch per epoch: %d" % batch_per_epoch)
                 print("Total Iters: %d" % t_total)
-                print('Warmup ratio:', warmup_ratio)
-                print('Warmup steps %d:' % warmup_steps)
+                print("Warmup ratio:", warmup_ratio)
+                print("Warmup steps %d:" % warmup_steps)
 
             parameters = filter(lambda p: p.requires_grad, self.model.parameters())
             optim = torch.optim.AdamW(
                 parameters,
                 lr=self.args.lr,
             )
-            lr_scheduler = get_linear_schedule_with_warmup(
-                optim, warmup_steps, t_total)
+            lr_scheduler = get_linear_schedule_with_warmup(optim, warmup_steps, t_total)
 
         else:
-            optim = self.args.optimizer(
-                list(self.model.parameters()), self.args.lr)
+            optim = self.args.optimizer(list(self.model.parameters()), self.args.lr)
 
         return optim, lr_scheduler
 
     def load_checkpoint(self, ckpt_path):
-        state_dict = load_state_dict(ckpt_path, 'cpu')
+        state_dict = load_state_dict(ckpt_path, "cpu")
 
         original_keys = list(state_dict.keys())
         for key in original_keys:
             if key.startswith("vis_encoder."):
-                new_key = 'encoder.' + key[len("vis_encoder."):]
+                new_key = "encoder." + key[len("vis_encoder.") :]
                 state_dict[new_key] = state_dict.pop(key)
 
             if key.startswith("model.vis_encoder."):
-                new_key = 'model.encoder.' + key[len("model.vis_encoder."):]
+                new_key = "model.encoder." + key[len("model.vis_encoder.") :]
                 state_dict[new_key] = state_dict.pop(key)
 
         results = self.model.load_state_dict(state_dict, strict=False)
         if self.verbose:
-            print('Model loaded from ', ckpt_path)
+            print("Model loaded from ", ckpt_path)
             # pprint(results)
 
     def init_weights(self):
 
         def init_bert_weights(module):
-            """ Initialize the weights."""
+            """Initialize the weights."""
             if isinstance(module, (nn.Linear, nn.Embedding)):
                 # Slightly different from the TF version which uses truncated_normal for initialization
                 # cf https://github.com/pytorch/pytorch/pull/5617
@@ -97,6 +101,7 @@ class TrainerBase(object):
                 module.weight.data.fill_(1.0)
             if isinstance(module, nn.Linear) and module.bias is not None:
                 module.bias.data.zero_()
+
         self.model.apply(init_bert_weights)
         self.model.init_weights()
 
@@ -123,26 +128,26 @@ class TrainerBase(object):
             del state_dict[key]
 
         torch.save(state_dict, os.path.join(self.args.ckpt_dir, "%s.pth" % name))
-        print('Model saved at', os.path.join(self.args.ckpt_dir, "%s.pth" % name))
+        print("Model saved at", os.path.join(self.args.ckpt_dir, "%s.pth" % name))
 
     def load(self, path, loc=None):
-        if loc is None and hasattr(self.args, 'gpu'):
-            loc = f'cuda:{self.args.gpu}'
+        if loc is None and hasattr(self.args, "gpu"):
+            loc = f"cuda:{self.args.gpu}"
         state_dict = torch.load("%s.pth" % path, map_location=loc)
 
         original_keys = list(state_dict.keys())
         for key in original_keys:
             if key.startswith("module.vis_encoder."):
-                new_key = 'module.encoder.' + key[len("module.vis_encoder."):]
+                new_key = "module.encoder." + key[len("module.vis_encoder.") :]
                 state_dict[new_key] = state_dict.pop(key)
 
             if key.startswith("module.model.vis_encoder."):
-                new_key = 'module.model.encoder.' + \
-                    key[len("module.model.vis_encoder."):]
+                new_key = (
+                    "module.model.encoder." + key[len("module.model.vis_encoder.") :]
+                )
                 state_dict[new_key] = state_dict.pop(key)
 
         results = self.model.load_state_dict(state_dict, strict=False)
         if self.verbose:
-            print('Model loaded from ', path)
+            print("Model loaded from ", path)
             # pprint(results)
-

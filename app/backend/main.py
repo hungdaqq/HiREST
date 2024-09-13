@@ -22,7 +22,13 @@ async def promptcheck(request: promptCheckRequest):
     #     f"{request.prompt}": ["custom_video_pipeline/data/video/vid1.mp4", "custom_video_pipeline/data/video/vid2.mp4", "custom_video_pipeline/data/video/vid3.mp4", "custom_video_pipeline/data/video/vid4.mp4", "custom_video_pipeline/data/video/vid5.mp4"]
     # }
     data = {
-        f"data": ["vid1.mp4", "vid2.mp4", "vid3.mp4", "vid4.mp4", "vid5.mp4"]
+        "data": {
+            "vid1.mp4": 0.85,
+            "vid2.mp4": 0.78,
+            "vid3.mp4": 0.92,
+            "vid4.mp4": 0.60,
+            "vid5.mp4": 0.77
+        }
     }
     file_path = "./custom_video_pipeline2/all_data_test.json"
     os.makedirs(os.path.dirname(file_path), exist_ok=True)

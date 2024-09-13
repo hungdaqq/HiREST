@@ -14,6 +14,7 @@ import asyncio
 
 # Define the path to the video folder
 MEDIA_FOLDER = "custom_video_pipeline/data/video"
+VIDEOS_PER_ROW = 4
 HTTP_BASE_URL = "http://localhost:8000/api/v1"
 WS_BASE_URL = "ws://localhost:8000/api/v1"
 
@@ -101,14 +102,18 @@ def send_prompt_check_request(prompt_text):
     if response.status_code == 200:
         print("Request successful!")
         
-        # Extract the list of video file paths from the response
+        # Extract the dictionary of video file paths and their confidence values from the response
         response_data = response.json()
-        video_file_list = response_data['data']
+        print(response_data)
+        
+        video_file_dict = response_data['data']
+        
         # Filter out non-existent files
-        existing_files = [file_path for file_path in video_file_list if os.path.exists(os.path.join(MEDIA_FOLDER, file_path))]
+        existing_files = {file_path: confidence for file_path, confidence in video_file_dict.items() if os.path.exists(os.path.join(MEDIA_FOLDER, file_path))}
         
         print(f"Existing files: {existing_files}")
         return existing_files
+
     else:
         print(f"Failed with status code: {response.status_code}")
         print("Response:", response.text)
@@ -121,6 +126,37 @@ async def websocket_client(video_file_name, v_duration, prompt):
     
 # Set the layout of the Streamlit app
 st.set_page_config(layout="wide")
+
+# Function to get all video files in the folder
+def get_video_files():
+    return [f for f in os.listdir(MEDIA_FOLDER) if os.path.isfile(os.path.join(MEDIA_FOLDER, f)) and f.lower().endswith(('.mp4', '.avi', '.mov'))]
+
+# Initialize session state variable if not already set
+if "show_videos" not in st.session_state:
+    st.session_state.show_videos = False
+
+# Button to toggle video display
+if st.button("Toggle Video Display"):
+    st.session_state.show_videos = not st.session_state.show_videos
+
+# Display videos if the toggle is on
+if st.session_state.show_videos:
+    st.write("### Video Gallery")
+
+    video_files = get_video_files()
+    num_videos = len(video_files)
+    num_rows = (num_videos + VIDEOS_PER_ROW - 1) // VIDEOS_PER_ROW
+    
+    for row in range(num_rows):
+        cols = st.columns(VIDEOS_PER_ROW)
+        start_index = row * VIDEOS_PER_ROW
+        end_index = min(start_index + VIDEOS_PER_ROW, num_videos)
+        videos_to_display = video_files[start_index:end_index]
+        
+        for col, video_file in zip(cols, videos_to_display):
+            with col:
+                st.video(os.path.join(MEDIA_FOLDER, video_file))
+
 
 # Initialize session state variables if not already set
 if "selected_video" not in st.session_state:
@@ -169,44 +205,77 @@ with st.form(key="input_form"):
             else:
                 st.session_state.submitted = True
 
+# if st.session_state.submitted:
+# # Set the number of videos to display at a time
+#     videos_per_page = 3
+#     # Create a container for the video panel
+#     video_panel = st.container()
+
+#     with video_panel:
+#         st.write("### Chọn Video")
+
+#         # Calculate the number of pages
+#         total_videos = len(st.session_state.video_files)
+#         total_pages = (total_videos - 1) // videos_per_page + 1
+
+#         # Create a slider to navigate through pages
+#         page = st.select_slider(
+#             "Select Page",
+#             options=list(range(1, total_pages + 1)),
+#             format_func=lambda x: f"Page {x}",
+#             label_visibility="collapsed",
+#         )
+
+#         # Calculate the range of videos to display
+#         start_index = (page - 1) * videos_per_page
+#         end_index = min(start_index + videos_per_page, total_videos)
+
+#         # Create columns for the current page videos
+#         cols = st.columns(videos_per_page)
+#         cols2 = st.columns(videos_per_page)
+
+#         # Display the videos and buttons for the current page
+#         for index, (col, video_file) in enumerate(zip(cols, st.session_state.video_files[start_index:end_index])):
+#             with col:
+#                 st.video(os.path.join(MEDIA_FOLDER, video_file))
+
+#         for index, (col2, video_file) in enumerate(zip(cols2, st.session_state.video_files[start_index:end_index])):
+#             with col2:
+#                 if st.button(f"Select Video {index + start_index + 1}", key=f"select_{index}"):
+#                     st.session_state.selected_video = video_file
+
+
 if st.session_state.submitted:
-# Set the number of videos to display at a time
-    videos_per_page = 3
+    # Set the number of videos per row
+    videos_per_row = 3
+    
     # Create a container for the video panel
     video_panel = st.container()
 
     with video_panel:
         st.write("### Chọn Video")
+        video_files = st.session_state.video_files
+        print(video_files)
+        
+        # Create a grid layout for the videos
+        num_videos = len(video_files)
+        num_rows = (num_videos + videos_per_row - 1) // videos_per_row
+        
+        for row in range(num_rows):
+            cols = st.columns(videos_per_row)
+            start_index = row * videos_per_row
+            end_index = min(start_index + videos_per_row, num_videos)
+            videos_to_display = list(video_files.items())[start_index:end_index]
+            
+            for col, (video_file, confidence) in zip(cols, videos_to_display):
+                with col:
+                    st.video(os.path.join(MEDIA_FOLDER, video_file))
+            for col, (video_file, confidence) in zip(cols, videos_to_display):
+                with col:
+                    st.write(f"Confidence: {confidence:.2f}")
+                    if st.button(f"Select Video {start_index + list(video_files.keys()).index(video_file) + 1}", key=f"select_{video_file}"):
+                        st.session_state.selected_video = video_file
 
-        # Calculate the number of pages
-        total_videos = len(st.session_state.video_files)
-        total_pages = (total_videos - 1) // videos_per_page + 1
-
-        # Create a slider to navigate through pages
-        page = st.select_slider(
-            "Select Page",
-            options=list(range(1, total_pages + 1)),
-            format_func=lambda x: f"Page {x}",
-            label_visibility="collapsed",
-        )
-
-        # Calculate the range of videos to display
-        start_index = (page - 1) * videos_per_page
-        end_index = min(start_index + videos_per_page, total_videos)
-
-        # Create columns for the current page videos
-        cols = st.columns(videos_per_page)
-        cols2 = st.columns(videos_per_page)
-
-        # Display the videos and buttons for the current page
-        for index, (col, video_file) in enumerate(zip(cols, st.session_state.video_files[start_index:end_index])):
-            with col:
-                st.video(os.path.join(MEDIA_FOLDER, video_file))
-
-        for index, (col2, video_file) in enumerate(zip(cols2, st.session_state.video_files[start_index:end_index])):
-            with col2:
-                if st.button(f"Select Video {index + start_index + 1}", key=f"select_{index}"):
-                    st.session_state.selected_video = video_file
 
 st.write("### Kết quả")
 # Placeholder for real-time logs

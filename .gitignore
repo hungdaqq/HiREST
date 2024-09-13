@@ -6,3 +6,6 @@ data/ASR/
 data/ASR_feats_all-MiniLM-L6-v2/
 custom_video_pipeline/
 hirest/
+fe_env/
+be_env/
+app/frontendJS/my-app/node_modules/

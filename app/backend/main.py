@@ -74,10 +74,13 @@ async def video_retrival(request: promptCheckRequest):
     top_videos = [all_video_ids[i] for i in top_indices[0]]
     top_scores = top_scores[0].tolist()
 
-    # Zip the scores with the videos
-    top_results = dict(zip(top_videos, top_scores))
-
-    return {"data": top_results, "message": "Video retrieval successful"}
+    results = {
+        video: score for video, score in zip(top_videos, top_scores) if score >= 0.2
+    }
+    return {
+        "message": "Video retrieval successful",
+        "data": results,
+    }
 
 
 @router.websocket("/ws/predict")

@@ -1,12 +1,25 @@
+# API libraries
 from fastapi import FastAPI, WebSocket, APIRouter, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import json
-import os
 import asyncio
 import uvicorn
-import logging
-import time
+
+# Utility libraries
+import json
+import os
+from tqdm import tqdm
+import sys
+import pathlib
+
+sys.path.append("./EVA_clip")
+from eva_clip import build_eva_model_and_transforms
+
+# Model libraries
+import torch
+
+# Prompt text handler
+import clip
 
 # Initialize FastAPI app
 router = APIRouter(prefix="/api/v1")
@@ -14,62 +27,58 @@ router = APIRouter(prefix="/api/v1")
 
 class promptCheckRequest(BaseModel):
     prompt: str
+    top_k: int
 
-
-@router.post("/promptcheck")
-async def promptcheck(request: promptCheckRequest):
-    # data = {
-    #     f"{request.prompt}": ["custom_video_pipeline/data/video/vid1.mp4", "custom_video_pipeline/data/video/vid2.mp4", "custom_video_pipeline/data/video/vid3.mp4", "custom_video_pipeline/data/video/vid4.mp4", "custom_video_pipeline/data/video/vid5.mp4"]
-    # }
-    data = {
-        "data": {
-            "vid1.mp4": 0.85,
-            "vid2.mp4": 0.78,
-            "vid3.mp4": 0.92,
-            "vid4.mp4": 0.60,
-            "vid5.mp4": 0.77
-        }
-    }
-    file_path = "./custom_video_pipeline2/all_data_test.json"
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    with open(file_path, "w") as f:
-        json.dump(data, f)
-
-    # command = [
-    #     "python",
-    #     "run.py",
-    #     "--data_dir",
-    #     "./custom_video_pipeline/data/splits/",
-    #     "--video_feature_dir",
-    #     "./custom_video_pipeline/data/eva_clip_features",
-    #     "--asr_dir",
-    #     "./custom_video_pipeline/data/ASR",
-    #     "--asr_feature_dir",
-    #     "./custom_video_pipeline/data/ASR_feats_all-MiniLM-L6-v2",
-    #     "--eval_batch_size",
-    #     "1",
-    #     "--task_moment_retrieval",
-    #     "--task_moment_segmentation",
-    #     "--task_step_captioning",
-    #     "--ckpt_dir",
-    #     "./checkpoints/hirest_joint_model/",
-    #     "--end_to_end",
-    # ]
-
-    # # Run the command and capture output
-    # result = subprocess.run(command)
-
-    # with open(
-    #     "./checkpoints/hirest_joint_model/final_end_to_end_results.json", "r"
-    # ) as file:
-    #     data = json.load(file)
-
-    return data
 
 class PredictRequest(BaseModel):
     video_file_name: str
     v_duration: float
     prompt: str
+
+
+clip_model, clip_preprocess = build_eva_model_and_transforms(
+    "EVA_CLIP_g_14", pretrained="./pretrained_weights/eva_clip_psz14.pt"
+)
+
+DEVICE = "cpu"
+clip_model = clip_model.to(DEVICE)
+clip_model.eval()
+
+VIDEO_DIR = "./custom_pipeline/videos"
+VIDEO_FEATURE_DIR = "./custom_pipeline/eva_clip_features"
+all_video_ids = os.listdir(VIDEO_DIR)
+all_video_embeds = []
+for video_id in tqdm(all_video_ids):
+    video_embeds = torch.load(
+        os.path.join(VIDEO_FEATURE_DIR, f"{video_id}.pt"), map_location="cpu"
+    )
+    video_embeds /= video_embeds.norm(dim=-1, keepdim=True)
+    all_video_embeds.append(video_embeds.mean(dim=0))  # Avgpool
+all_video_embeds = torch.stack(all_video_embeds).to(DEVICE)
+
+
+@router.post("/video_retrival")
+async def video_retrival(request: promptCheckRequest):
+    prompts = [request.prompt]
+
+    with torch.no_grad():
+        text_token = clip.tokenize(prompts).to(DEVICE)
+        text_embed = clip_model.encode_text(text_token).float()
+        text_embed /= text_embed.norm(dim=-1, keepdim=True)
+
+    text_to_video_scores = torch.matmul(text_embed, all_video_embeds.T)
+
+    # Sort videos based on the scores and take top-k videos
+    top_scores, top_indices = torch.topk(text_to_video_scores, request.top_k, dim=1)
+
+    top_videos = [all_video_ids[i] for i in top_indices[0]]
+    top_scores = top_scores[0].tolist()
+
+    # Zip the scores with the videos
+    top_results = dict(zip(top_videos, top_scores))
+
+    return {"data": top_results, "message": "Video retrieval successful"}
+
 
 @router.websocket("/ws/predict")
 async def websocket_predict(websocket: WebSocket):
@@ -84,7 +93,7 @@ async def websocket_predict(websocket: WebSocket):
             "Processing request...",
             f"Received video file: {predict_request.video_file_name}",
             f"Duration: {predict_request.v_duration}",
-            f"Prompt: {predict_request.prompt}"
+            f"Prompt: {predict_request.prompt}",
         ]
 
         for message in log_messages:

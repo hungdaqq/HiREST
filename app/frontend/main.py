@@ -162,26 +162,6 @@ if "show_videos" not in st.session_state:
 if st.button("Hiện danh sách video"):
     st.session_state.show_videos = not st.session_state.show_videos
 
-# # Display videos if the toggle is on
-# if st.session_state.show_videos:
-#     st.write("### Danh sách video")
-
-#     video_files = get_video_files()
-#     num_videos = len(video_files)
-#     num_rows = (num_videos + VIDEOS_PER_ROW - 1) // VIDEOS_PER_ROW
-
-#     for row in range(num_rows):
-#         cols = st.columns(VIDEOS_PER_ROW)
-#         start_index = row * VIDEOS_PER_ROW
-#         end_index = min(start_index + VIDEOS_PER_ROW, num_videos)
-#         videos_to_display = video_files[start_index:end_index]
-
-#         for col, video_file in zip(cols, videos_to_display):
-#             with col:
-#                 st.video(os.path.join(VIDEO_DIR, video_file))
-
-
-
 # Pagination logic
 if 'page' not in st.session_state:
     st.session_state.page = 0

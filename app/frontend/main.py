@@ -104,14 +104,12 @@ def send_prompt_check_request(prompt_text):
         
         # Extract the dictionary of video file paths and their confidence values from the response
         response_data = response.json()
-        print(response_data)
         
         video_file_dict = response_data['data']
         
         # Filter out non-existent files
         existing_files = {file_path: confidence for file_path, confidence in video_file_dict.items() if os.path.exists(os.path.join(MEDIA_FOLDER, file_path))}
         
-        print(f"Existing files: {existing_files}")
         return existing_files
 
     else:
@@ -136,12 +134,12 @@ if "show_videos" not in st.session_state:
     st.session_state.show_videos = False
 
 # Button to toggle video display
-if st.button("Toggle Video Display"):
+if st.button("Hiện danh sách video"):
     st.session_state.show_videos = not st.session_state.show_videos
 
 # Display videos if the toggle is on
 if st.session_state.show_videos:
-    st.write("### Video Gallery")
+    st.write("### Danh sách video")
 
     video_files = get_video_files()
     num_videos = len(video_files)
@@ -255,7 +253,6 @@ if st.session_state.submitted:
     with video_panel:
         st.write("### Chọn Video")
         video_files = st.session_state.video_files
-        print(video_files)
         
         # Create a grid layout for the videos
         num_videos = len(video_files)
@@ -270,9 +267,10 @@ if st.session_state.submitted:
             for col, (video_file, confidence) in zip(cols, videos_to_display):
                 with col:
                     st.video(os.path.join(MEDIA_FOLDER, video_file))
-            for col, (video_file, confidence) in zip(cols, videos_to_display):
+            cols2 = st.columns(videos_per_row)
+            for col, (video_file, confidence) in zip(cols2, videos_to_display):
                 with col:
-                    st.write(f"Confidence: {confidence:.2f}")
+                    st.write(f"Confidence: {confidence*100:.2f}%")
                     if st.button(f"Select Video {start_index + list(video_files.keys()).index(video_file) + 1}", key=f"select_{video_file}"):
                         st.session_state.selected_video = video_file
 

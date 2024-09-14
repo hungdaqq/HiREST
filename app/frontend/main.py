@@ -11,8 +11,10 @@ import asyncio
 
 
 # Define the path to the video folder
-VIDEO_DIR = "custom_pipeline/videos"
-VIDEOS_PER_ROW = 4
+# VIDEO_DIR = "custom_pipeline/videos"
+VIDEO_DIR = "custom_data_hirest"
+VIDEOS_PER_ROW = 3  # Adjust based on how many videos you want per row
+VIDEOS_PER_PAGE = 6  # Adjust how many videos to show per page
 HTTP_BASE_URL = "http://localhost:8000/api/v1"
 WS_BASE_URL = "ws://localhost:8000/api/v1"
 
@@ -142,33 +144,6 @@ def get_video_files():
     ]
 
 
-# Initialize session state variable if not already set
-if "show_videos" not in st.session_state:
-    st.session_state.show_videos = False
-
-# Button to toggle video display
-if st.button("Hiện danh sách video"):
-    st.session_state.show_videos = not st.session_state.show_videos
-
-# Display videos if the toggle is on
-if st.session_state.show_videos:
-    st.write("### Danh sách video")
-
-    video_files = get_video_files()
-    num_videos = len(video_files)
-    num_rows = (num_videos + VIDEOS_PER_ROW - 1) // VIDEOS_PER_ROW
-
-    for row in range(num_rows):
-        cols = st.columns(VIDEOS_PER_ROW)
-        start_index = row * VIDEOS_PER_ROW
-        end_index = min(start_index + VIDEOS_PER_ROW, num_videos)
-        videos_to_display = video_files[start_index:end_index]
-
-        for col, video_file in zip(cols, videos_to_display):
-            with col:
-                st.video(os.path.join(VIDEO_DIR, video_file))
-
-
 # Initialize session state variables if not already set
 if "selected_video" not in st.session_state:
     st.session_state.selected_video = None
@@ -180,6 +155,77 @@ if "logs" not in st.session_state:
     st.session_state.logs = []
 if "result" not in st.session_state:
     st.session_state.result = None
+if "show_videos" not in st.session_state:
+    st.session_state.show_videos = False
+
+# Button to toggle video display
+if st.button("Hiện danh sách video"):
+    st.session_state.show_videos = not st.session_state.show_videos
+
+# # Display videos if the toggle is on
+# if st.session_state.show_videos:
+#     st.write("### Danh sách video")
+
+#     video_files = get_video_files()
+#     num_videos = len(video_files)
+#     num_rows = (num_videos + VIDEOS_PER_ROW - 1) // VIDEOS_PER_ROW
+
+#     for row in range(num_rows):
+#         cols = st.columns(VIDEOS_PER_ROW)
+#         start_index = row * VIDEOS_PER_ROW
+#         end_index = min(start_index + VIDEOS_PER_ROW, num_videos)
+#         videos_to_display = video_files[start_index:end_index]
+
+#         for col, video_file in zip(cols, videos_to_display):
+#             with col:
+#                 st.video(os.path.join(VIDEO_DIR, video_file))
+
+
+
+# Pagination logic
+if 'page' not in st.session_state:
+    st.session_state.page = 0
+
+def next_page():
+    st.session_state.page += 1
+
+def prev_page():
+    st.session_state.page -= 1
+
+if st.session_state.show_videos:
+    st.write("### Danh sách video")
+
+    video_files = get_video_files()
+    num_videos = len(video_files)
+    num_rows = (VIDEOS_PER_PAGE + VIDEOS_PER_ROW - 1) // VIDEOS_PER_ROW
+    current_page = st.session_state.page
+    start_index = current_page * VIDEOS_PER_PAGE
+    end_index = min(start_index + VIDEOS_PER_PAGE, num_videos)
+
+    if start_index >= num_videos:
+        st.write("Không có video nào.")
+    else:
+        videos_to_display = video_files[start_index:end_index]
+        
+        for row in range(0, len(videos_to_display), VIDEOS_PER_ROW):
+            cols = st.columns(VIDEOS_PER_ROW)
+            for col, video_file in zip(cols, videos_to_display[row:row + VIDEOS_PER_ROW]):
+                with col:
+                    st.video(os.path.join(VIDEO_DIR, video_file))
+
+    # Pagination controls
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col1:
+        if current_page > 0:
+            st.button("Trang trước", on_click=prev_page)
+    with col2:
+        st.write(f"Trang {current_page + 1} trên {((num_videos + VIDEOS_PER_PAGE - 1) // VIDEOS_PER_PAGE)}")
+    with col3:
+        if end_index < num_videos:
+            st.button("Trang tiếp theo", on_click=next_page)
+
+
+
 # Create a container for the input box and buttons
 st.write("### Nhập câu truy vấn")
 

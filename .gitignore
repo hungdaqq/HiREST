@@ -11,3 +11,4 @@ be_env/
 app/frontendJS/my-app/node_modules/
 custom_pipeline/eva_clip_features
 custom_pipeline/videos
+custom_data_hirest/

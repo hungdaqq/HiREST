@@ -10,7 +10,7 @@ import json
 import os
 from tqdm import tqdm
 import sys
-import pathlib
+import subprocess
 
 sys.path.append("./EVA_clip")
 from eva_clip import build_eva_model_and_transforms
@@ -25,15 +25,15 @@ import clip
 router = APIRouter(prefix="/api/v1")
 
 
-class promptCheckRequest(BaseModel):
+class videoRetrievalReq(BaseModel):
     prompt: str
     top_k: int
 
 
-class PredictRequest(BaseModel):
+class momentRetrievalReq(BaseModel):
+    prompt: str
     video_file_name: str
     v_duration: float
-    prompt: str
 
 
 clip_model, clip_preprocess = build_eva_model_and_transforms(
@@ -57,8 +57,8 @@ for video_id in tqdm(all_video_ids):
 all_video_embeds = torch.stack(all_video_embeds).to(DEVICE)
 
 
-@router.post("/video_retrival")
-async def video_retrival(request: promptCheckRequest):
+@router.post("/video_retrieval")
+async def video_retrieval(request: videoRetrievalReq):
     prompts = [request.prompt]
 
     with torch.no_grad():
@@ -83,41 +83,80 @@ async def video_retrival(request: promptCheckRequest):
     }
 
 
-@router.websocket("/ws/predict")
+@router.websocket("/ws/moment_retrieval")
 async def websocket_predict(websocket: WebSocket):
     await websocket.accept()
     try:
         # Receive the message from the client
         data = await websocket.receive_text()
-        predict_request = PredictRequest.parse_raw(data)
+        request = momentRetrievalReq.parse_raw(data)
 
-        # Simulate processing and logging
-        log_messages = [
-            "Processing request...",
-            f"Received video file: {predict_request.video_file_name}",
-            f"Duration: {predict_request.v_duration}",
-            f"Prompt: {predict_request.prompt}",
-        ]
-
-        for message in log_messages:
-            await websocket.send_text(json.dumps({"log": message}))
-            await asyncio.sleep(2)  # Simulate processing delay
-
-        # Simulate result
-        result = {
-            f"{predict_request.prompt}": {
-                f"{predict_request.video_file_name}": {
+        data = {
+            f"{request.prompt}": {
+                f"{request.video_file_name}": {
                     "relevant": True,
                     "clip": True,
-                    "v_duration": predict_request.v_duration,
+                    "v_duration": request.v_duration,
                     "bounds": [0, 1],
                     "steps": [],
                 }
             }
         }
+        with open("./custom_pipeline/splits/all_data_test.json", "w") as f:
+            json.dump(data, f)
 
-        # Send result
-        await websocket.send_text(json.dumps({"result": result}))
+        await websocket.send_text(json.dumps({"log": "Moment retrieval started"}))
+
+        command = [
+            "python",
+            "run.py",
+            "--data_dir",
+            "./custom_pipeline/splits/",
+            "--video_feature_dir",
+            "./custom_pipeline/eva_clip_features",
+            "--asr_dir",
+            "./custom_pipeline/ASR",
+            "--asr_feature_dir",
+            "./custom_pipeline/ASR_feats_all-MiniLM-L6-v2",
+            "--eval_batch_size",
+            "1",
+            "--task_moment_retrieval",
+            "--task_moment_segmentation",
+            "--task_step_captioning",
+            "--ckpt_dir",
+            "./checkpoints/hirest_joint_model/",
+            "--end_to_end",
+        ]
+
+        # Run the command and capture output
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+            universal_newlines=True,
+        )
+
+        # Print stdout and stderr in real-time
+        with process.stdout, process.stderr:
+            for stdout_line in process.stdout:
+                await websocket.send_text(json.dumps({"log": stdout_line}))
+            for stderr_line in process.stderr:
+                await websocket.send_text(json.dumps({"log": stderr_line}))
+
+        # Wait for the process to finish and capture return code
+        return_code = process.wait()
+        if return_code == 0:
+            with open(
+                "./checkpoints/hirest_joint_model/final_end_to_end_results.json", "r"
+            ) as file:
+                data = json.load(file)
+
+            # Send result
+            await websocket.send_text(json.dumps({"data": data}))
+        else:
+            await websocket.send_text(json.dumps({"log": "Error: Process failed"}))
 
     except WebSocketDisconnect:
         print("Client disconnected")

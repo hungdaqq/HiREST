@@ -11,10 +11,9 @@ import asyncio
 
 
 # Define the path to the video folder
-# VIDEO_DIR = "custom_pipeline/videos"
-VIDEO_DIR = "custom_data_hirest"
-VIDEOS_PER_ROW = 3  # Adjust based on how many videos you want per row
-VIDEOS_PER_PAGE = 6  # Adjust how many videos to show per page
+VIDEO_DIR = "custom_pipeline/videos"
+VIDEOS_PER_ROW = 5  # Adjust based on how many videos you want per row
+VIDEOS_PER_PAGE = 10  # Adjust how many videos to show per page
 HTTP_BASE_URL = "http://localhost:8000/api/v1"
 WS_BASE_URL = "ws://localhost:8000/api/v1"
 
@@ -92,8 +91,8 @@ async def send_predict_request(websocket, video_file_name, v_duration, prompt):
         st.error(f"WebSocket error: {str(e)}")
 
 
-def video_retrival_request(prompt, top_k=5):
-    url = f"{HTTP_BASE_URL}/video_retrival"
+def video_retrieval_request(prompt, top_k=5):
+    url = f"{HTTP_BASE_URL}/video_retrieval"
 
     # Define the request payload
     payload = {"prompt": prompt, "top_k": top_k}
@@ -125,7 +124,7 @@ def video_retrival_request(prompt, top_k=5):
 
 
 async def websocket_client(video_file_name, v_duration, prompt):
-    url = f"{WS_BASE_URL}/ws/predict"
+    url = f"{WS_BASE_URL}/ws/moment_retrieval"
     async with websockets.connect(url) as websocket:
         await send_predict_request(websocket, video_file_name, v_duration, prompt)
 
@@ -163,14 +162,17 @@ if st.button("Hiện danh sách video"):
     st.session_state.show_videos = not st.session_state.show_videos
 
 # Pagination logic
-if 'page' not in st.session_state:
+if "page" not in st.session_state:
     st.session_state.page = 0
+
 
 def next_page():
     st.session_state.page += 1
 
+
 def prev_page():
     st.session_state.page -= 1
+
 
 if st.session_state.show_videos:
     st.write("### Danh sách video")
@@ -186,10 +188,12 @@ if st.session_state.show_videos:
         st.write("Không có video nào.")
     else:
         videos_to_display = video_files[start_index:end_index]
-        
+
         for row in range(0, len(videos_to_display), VIDEOS_PER_ROW):
             cols = st.columns(VIDEOS_PER_ROW)
-            for col, video_file in zip(cols, videos_to_display[row:row + VIDEOS_PER_ROW]):
+            for col, video_file in zip(
+                cols, videos_to_display[row : row + VIDEOS_PER_ROW]
+            ):
                 with col:
                     st.video(os.path.join(VIDEO_DIR, video_file))
 
@@ -199,11 +203,12 @@ if st.session_state.show_videos:
         if current_page > 0:
             st.button("Trang trước", on_click=prev_page)
     with col2:
-        st.write(f"Trang {current_page + 1} trên {((num_videos + VIDEOS_PER_PAGE - 1) // VIDEOS_PER_PAGE)}")
+        st.write(
+            f"Trang {current_page + 1} trên {((num_videos + VIDEOS_PER_PAGE - 1) // VIDEOS_PER_PAGE)}"
+        )
     with col3:
         if end_index < num_videos:
             st.button("Trang tiếp theo", on_click=next_page)
-
 
 
 # Create a container for the input box and buttons
@@ -236,7 +241,7 @@ with st.form(key="input_form"):
             st.warning("Hãy nhập câu truy vấn.")
         else:
             st.session_state.selected_video = None
-            st.session_state.video_files = video_retrival_request(user_input)
+            st.session_state.video_files = video_retrieval_request(user_input)
             if not st.session_state.video_files:
                 st.error("Không tìm thấy video phù hợp .")
             else:

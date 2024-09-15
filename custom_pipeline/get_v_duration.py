@@ -3,10 +3,10 @@ import json
 from moviepy.editor import VideoFileClip
 
 # Folder containing video files
-video_folder = "./videos"
+video_folder = "./custom_pipeline/videos"
 
 # Path to your JSON file
-json_file_path = "./splits/all_data_test.json"
+json_file_path = "./custom_pipeline/data.json"
 
 # Load the existing JSON data
 with open(json_file_path, "r") as file:
@@ -23,6 +23,7 @@ def get_video_duration(video_path):
 
 # Update JSON with video durations
 for category, videos in data.items():
+    print(category)
     for video_file in videos:
         video_path = os.path.join(video_folder, video_file)
         if os.path.isfile(video_path):

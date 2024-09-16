@@ -80,7 +80,7 @@ class Trainer(TrainerBase):
         if self.verbose:
             from time import time
             start = time()
-        self.model = self.model.to(args.gpu)
+        # self.model = self.model.to(args.gpu)
 
         # Optimizer
         if train:

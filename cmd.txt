@@ -1,3 +1,0 @@
-streamlit run .\app\frontend\main.py
-
-python .\app\backend\main.py

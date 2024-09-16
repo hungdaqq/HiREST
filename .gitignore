@@ -1,9 +1,7 @@
 __pycache__/
 checkpoints/
 pretrained_weights/
-data/eva_clip_features/
-data/ASR/
-data/ASR_feats_all-MiniLM-L6-v2/
+data/
 custom_video_pipeline/
 hirest/
 fe_env/
@@ -11,5 +9,10 @@ be_env/
 app/frontendJS/my-app/node_modules/
 custom_pipeline/eva_clip_features
 custom_pipeline/videos
+custom_pipeline/ASR
+custom_pipeline/ASR_feats_all-MiniLM-L6-v2
+custom_pipeline/audio
+custom_pipeline/raw_frames
+custom_pipeline/splits
 custom_data_hirest/
 archive.zip

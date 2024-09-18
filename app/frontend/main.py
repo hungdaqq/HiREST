@@ -176,7 +176,7 @@ def prev_page():
 
 if st.session_state.show_videos:
     st.write("### Danh sách video")
-
+    st.session_state.logs = []
     video_files = get_video_files()
     num_videos = len(video_files)
     num_rows = (VIDEOS_PER_PAGE + VIDEOS_PER_ROW - 1) // VIDEOS_PER_ROW
@@ -288,6 +288,7 @@ with st.form(key="input_form"):
 
 
 if st.session_state.submitted:
+    st.session_state.logs = []
     # Set the number of videos per row
     videos_per_row = 4
     # Create a container for the video panel
@@ -329,6 +330,7 @@ log_placeholder = st.empty()
 # Display the selected video message if one is selected
 if st.session_state.selected_video:
     st.write(f"Đã chọn Video: {st.session_state.selected_video}")
+    st.session_state.logs = []
     video_file_path = os.path.join(VIDEO_DIR, st.session_state.selected_video)
     duration = get_video_duration(video_file_path)
     asyncio.run(websocket_client(st.session_state.selected_video, duration, user_input))

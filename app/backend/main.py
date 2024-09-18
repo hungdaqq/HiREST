@@ -82,31 +82,12 @@ async def video_retrieval(request: videoRetrievalReq):
         "data": results,
     }
 
-
-@router.websocket("/ws/moment_retrieval")
-async def websocket_predict(websocket: WebSocket):
-    await websocket.accept()
+async def long_running_task(websocket: WebSocket):
+    """
+    Simulates a long-running machine learning task.
+    Sends periodic progress updates to avoid WebSocket timeout.
+    """
     try:
-        # Receive the message from the client
-        data = await websocket.receive_text()
-        request = momentRetrievalReq.parse_raw(data)
-
-        data = {
-            f"{request.prompt}": {
-                f"{request.video_file_name}": {
-                    "relevant": True,
-                    "clip": True,
-                    "v_duration": request.v_duration,
-                    "bounds": [0, 1],
-                    "steps": [],
-                }
-            }
-        }
-        with open("./custom_pipeline/splits/all_data_test.json", "w") as f:
-            json.dump(data, f)
-
-        await websocket.send_text(json.dumps({"log": "Moment retrieval started"}))
-
         command = [
             "python",
             "run.py",
@@ -157,7 +138,42 @@ async def websocket_predict(websocket: WebSocket):
             await websocket.send_text(json.dumps({"data": data}))
         else:
             await websocket.send_text(json.dumps({"log": "Error: Process failed"}))
+    except WebSocketDisconnect:
+        print("Client disconnected")
+    except Exception as e:
+        await websocket.send_text(json.dumps({"log": f"Error: {str(e)}"}))
 
+
+@router.websocket("/ws/moment_retrieval")
+async def websocket_predict(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        # Receive the message from the client
+        data = await websocket.receive_text()
+        request = momentRetrievalReq.parse_raw(data)
+
+        data = {
+            f"{request.prompt}": {
+                f"{request.video_file_name}": {
+                    "relevant": True,
+                    "clip": True,
+                    "v_duration": request.v_duration,
+                    "bounds": [0, 1],
+                    "steps": [],
+                }
+            }
+        }
+        with open("./custom_pipeline/splits/all_data_test.json", "w") as f:
+            json.dump(data, f)
+        await websocket.send_text(json.dumps({"log": "Moment retrieval started"}))
+        task_future = asyncio.create_task(long_running_task(websocket))
+
+        while not task_future.done():
+            await websocket.send_text(json.dumps({"heartbeat": "alive"}))
+            await asyncio.sleep(30)
+
+        # Wait for the task to complete
+        await task_future
     except WebSocketDisconnect:
         print("Client disconnected")
     except Exception as e:

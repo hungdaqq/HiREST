@@ -66,7 +66,8 @@ async def send_predict_request(websocket, video_file_name, v_duration, prompt):
             # Wait for the response
             response = await websocket.recv()
             data = json.loads(response)
-            
+            if 'heartbeat' in data:
+                continue
             # Check if the message contains 'log' key
             if 'log' in data:
                 st.session_state.logs.append(data['log'])
@@ -142,7 +143,7 @@ if st.button("Toggle Video Display"):
 # Display videos if the toggle is on
 if st.session_state.show_videos:
     st.write("### Video Gallery")
-
+    st.session_state.logs = []
     video_files = get_video_files()
     num_videos = len(video_files)
     num_rows = (num_videos + VIDEOS_PER_ROW - 1) // VIDEOS_PER_ROW
@@ -285,6 +286,7 @@ log_placeholder = st.empty()
 
 # Display the selected video message if one is selected
 if st.session_state.selected_video:
+    st.session_state.logs = []
     st.write(f"Đã chọn Video: {st.session_state.selected_video}")
     video_file_path = os.path.join(MEDIA_FOLDER, st.session_state.selected_video)
     duration = get_video_duration(video_file_path)

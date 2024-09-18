@@ -18,9 +18,6 @@ class promptCheckRequest(BaseModel):
 
 @router.post("/promptcheck")
 async def promptcheck(request: promptCheckRequest):
-    # data = {
-    #     f"{request.prompt}": ["custom_video_pipeline/data/video/vid1.mp4", "custom_video_pipeline/data/video/vid2.mp4", "custom_video_pipeline/data/video/vid3.mp4", "custom_video_pipeline/data/video/vid4.mp4", "custom_video_pipeline/data/video/vid5.mp4"]
-    # }
     data = {
         "data": {
             "vid1.mp4": 0.85,
@@ -35,50 +32,21 @@ async def promptcheck(request: promptCheckRequest):
     with open(file_path, "w") as f:
         json.dump(data, f)
 
-    # command = [
-    #     "python",
-    #     "run.py",
-    #     "--data_dir",
-    #     "./custom_video_pipeline/data/splits/",
-    #     "--video_feature_dir",
-    #     "./custom_video_pipeline/data/eva_clip_features",
-    #     "--asr_dir",
-    #     "./custom_video_pipeline/data/ASR",
-    #     "--asr_feature_dir",
-    #     "./custom_video_pipeline/data/ASR_feats_all-MiniLM-L6-v2",
-    #     "--eval_batch_size",
-    #     "1",
-    #     "--task_moment_retrieval",
-    #     "--task_moment_segmentation",
-    #     "--task_step_captioning",
-    #     "--ckpt_dir",
-    #     "./checkpoints/hirest_joint_model/",
-    #     "--end_to_end",
-    # ]
-
-    # # Run the command and capture output
-    # result = subprocess.run(command)
-
-    # with open(
-    #     "./checkpoints/hirest_joint_model/final_end_to_end_results.json", "r"
-    # ) as file:
-    #     data = json.load(file)
-
     return data
+
 
 class PredictRequest(BaseModel):
     video_file_name: str
     v_duration: float
     prompt: str
 
-@router.websocket("/ws/predict")
-async def websocket_predict(websocket: WebSocket):
-    await websocket.accept()
-    try:
-        # Receive the message from the client
-        data = await websocket.receive_text()
-        predict_request = PredictRequest.parse_raw(data)
 
+async def long_running_task(predict_request: PredictRequest, websocket: WebSocket):
+    """
+    Simulates a long-running machine learning task.
+    Sends periodic progress updates to avoid WebSocket timeout.
+    """
+    try:
         # Simulate processing and logging
         log_messages = [
             "Processing request...",
@@ -89,9 +57,14 @@ async def websocket_predict(websocket: WebSocket):
 
         for message in log_messages:
             await websocket.send_text(json.dumps({"log": message}))
-            await asyncio.sleep(2)  # Simulate processing delay
+            await asyncio.sleep(2)  # Simulate some processing delay
 
-        # Simulate result
+        # Long-running task simulation with periodic progress updates
+        for i in range(0, 100, 10):
+            await asyncio.sleep(5)  # Simulate a chunk of long processing (5s per step)
+            await websocket.send_text(json.dumps({"progress": f"{i}% complete"}))
+
+        # Simulate final result after completion
         result = {
             f"{predict_request.prompt}": {
                 f"{predict_request.video_file_name}": {
@@ -104,8 +77,33 @@ async def websocket_predict(websocket: WebSocket):
             }
         }
 
-        # Send result
+        # Send final result
         await websocket.send_text(json.dumps({"result": result}))
+
+    except WebSocketDisconnect:
+        print("Client disconnected")
+    except Exception as e:
+        await websocket.send_text(json.dumps({"log": f"Error: {str(e)}"}))
+
+
+@router.websocket("/ws/predict")
+async def websocket_predict(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        # Receive the message from the client
+        data = await websocket.receive_text()
+        predict_request = PredictRequest.parse_raw(data)
+
+        # Start the long-running task and keep the connection alive
+        task_future = asyncio.create_task(long_running_task(predict_request, websocket))
+
+        # Keeping the connection alive by sending a heartbeat every 30 seconds
+        while not task_future.done():
+            await websocket.send_text(json.dumps({"heartbeat": "alive"}))
+            await asyncio.sleep(30)
+
+        # Wait for the task to complete
+        await task_future
 
     except WebSocketDisconnect:
         print("Client disconnected")

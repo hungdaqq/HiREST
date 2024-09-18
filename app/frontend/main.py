@@ -68,7 +68,8 @@ async def send_predict_request(websocket, video_file_name, v_duration, prompt):
             # Wait for the response
             response = await websocket.recv()
             data = json.loads(response)
-
+            if 'heartbeat' in data:
+                continue
             # Check if the message contains 'log' key
             if "log" in data:
                 st.session_state.logs.append(data["log"])

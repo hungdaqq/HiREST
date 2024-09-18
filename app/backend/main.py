@@ -170,7 +170,7 @@ async def websocket_predict(websocket: WebSocket):
 
         while not task_future.done():
             await websocket.send_text(json.dumps({"heartbeat": "alive"}))
-            await asyncio.sleep(30)
+            await asyncio.sleep(2)
 
         # Wait for the task to complete
         await task_future

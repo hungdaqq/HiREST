@@ -87,9 +87,14 @@ async def send_predict_request(websocket, video_file_name, v_duration, prompt):
             elif "result" in data:
                 st.session_state.result = data["result"]
                 break  # Exit the loop when result is received
+            else:
+                print("Received unknown message:", data)
 
-    except Exception as e:
-        st.error(f"WebSocket error: {str(e)}")
+    except websockets.ConnectionClosedError as e:
+        print(f"Connection closed with error: {e}")
+    except websockets.ConnectionClosedOK:
+        print("Connection closed cleanly")
+
 
 
 def video_retrieval_request(prompt, top_k=5):

@@ -38,27 +38,30 @@ from .until_module import PreTrainedModel, LayerNorm, ACT2FN
 logger = logging.getLogger(__name__)
 
 PRETRAINED_MODEL_ARCHIVE_MAP = {}
-CONFIG_NAME = 'visual_config.json'
-WEIGHTS_NAME = 'visual_pytorch_model.bin'
+CONFIG_NAME = "visual_config.json"
+WEIGHTS_NAME = "visual_pytorch_model.bin"
 
 
 class VisualConfig(PretrainedConfig):
-    """Configuration class to store the configuration of a `VisualModel`.
-    """
+    """Configuration class to store the configuration of a `VisualModel`."""
+
     pretrained_model_archive_map = PRETRAINED_MODEL_ARCHIVE_MAP
     config_name = CONFIG_NAME
     weights_name = WEIGHTS_NAME
-    def __init__(self,
-                 vocab_size_or_config_json_file=4096,
-                 hidden_size=768,
-                 num_hidden_layers=3,
-                 num_attention_heads=12,
-                 intermediate_size=3072,
-                 hidden_act="gelu",
-                 hidden_dropout_prob=0.1,
-                 attention_probs_dropout_prob=0.1,
-                 max_position_embeddings=512,
-                 initializer_range=0.02):
+
+    def __init__(
+        self,
+        vocab_size_or_config_json_file=4096,
+        hidden_size=768,
+        num_hidden_layers=3,
+        num_attention_heads=12,
+        intermediate_size=3072,
+        hidden_act="gelu",
+        hidden_dropout_prob=0.1,
+        attention_probs_dropout_prob=0.1,
+        max_position_embeddings=512,
+        initializer_range=0.02,
+    ):
         """Constructs VisualConfig.
 
         Args:
@@ -82,7 +85,7 @@ class VisualConfig(PretrainedConfig):
                 initializing all weight matrices.
         """
         if isinstance(vocab_size_or_config_json_file, str):
-            with open(vocab_size_or_config_json_file, "r", encoding='utf-8') as reader:
+            with open(vocab_size_or_config_json_file, "r", encoding="utf-8") as reader:
                 json_config = json.loads(reader.read())
             for key, value in json_config.items():
                 self.__dict__[key] = value
@@ -98,17 +101,22 @@ class VisualConfig(PretrainedConfig):
             self.max_position_embeddings = max_position_embeddings
             self.initializer_range = initializer_range
         else:
-            raise ValueError("First argument must be either a vocabulary size (int)"
-                             "or the path to a pretrained model config file (str)")
+            raise ValueError(
+                "First argument must be either a vocabulary size (int)"
+                "or the path to a pretrained model config file (str)"
+            )
+
 
 class VisualEmbeddings(nn.Module):
-    """Construct the embeddings from word, position and token_type embeddings.
-    """
+    """Construct the embeddings from word, position and token_type embeddings."""
+
     def __init__(self, config):
         super(VisualEmbeddings, self).__init__()
 
         self.word_embeddings = nn.Linear(config.vocab_size, config.hidden_size)
-        self.position_embeddings = nn.Embedding(config.max_position_embeddings, config.hidden_size)
+        self.position_embeddings = nn.Embedding(
+            config.max_position_embeddings, config.hidden_size
+        )
 
         # self.LayerNorm is not snake-cased to stick with TensorFlow model variable name and be able to load
         # any TensorFlow checkpoint file
@@ -117,7 +125,9 @@ class VisualEmbeddings(nn.Module):
 
     def forward(self, input_embeddings):
         seq_length = input_embeddings.size(1)
-        position_ids = torch.arange(seq_length, dtype=torch.long, device=input_embeddings.device)
+        position_ids = torch.arange(
+            seq_length, dtype=torch.long, device=input_embeddings.device
+        )
         position_ids = position_ids.unsqueeze(0).expand(input_embeddings.size(0), -1)
         words_embeddings = self.word_embeddings(input_embeddings)
         # words_embeddings = self.transform_act_fn(words_embeddings)
@@ -129,13 +139,15 @@ class VisualEmbeddings(nn.Module):
         embeddings = self.dropout(embeddings)
         return embeddings
 
+
 class VisualSelfAttention(nn.Module):
     def __init__(self, config):
         super(VisualSelfAttention, self).__init__()
         if config.hidden_size % config.num_attention_heads != 0:
             raise ValueError(
                 "The hidden size (%d) is not a multiple of the number of attention "
-                "heads (%d)" % (config.hidden_size, config.num_attention_heads))
+                "heads (%d)" % (config.hidden_size, config.num_attention_heads)
+            )
         self.num_attention_heads = config.num_attention_heads
         self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
         self.all_head_size = self.num_attention_heads * self.attention_head_size
@@ -147,7 +159,10 @@ class VisualSelfAttention(nn.Module):
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
 
     def transpose_for_scores(self, x):
-        new_x_shape = x.size()[:-1] + (self.num_attention_heads, self.attention_head_size)
+        new_x_shape = x.size()[:-1] + (
+            self.num_attention_heads,
+            self.attention_head_size,
+        )
         x = x.view(*new_x_shape)
         return x.permute(0, 2, 1, 3)
 
@@ -164,6 +179,10 @@ class VisualSelfAttention(nn.Module):
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
         attention_scores = attention_scores / math.sqrt(self.attention_head_size)
         # Apply the attention mask is (precomputed for all layers in VisualModel forward() function)
+
+        # if attention_scores.shape != attention_mask.shape:
+        #     zero_tensor = torch.zeros((1, 1, 1, 1), device=attention_mask.device)
+        #     attention_mask = torch.cat((attention_mask, zero_tensor), dim=3)
         attention_scores = attention_scores + attention_mask
 
         # Normalize the attention scores to probabilities.
@@ -210,8 +229,11 @@ class VisualIntermediate(nn.Module):
     def __init__(self, config):
         super(VisualIntermediate, self).__init__()
         self.dense = nn.Linear(config.hidden_size, config.intermediate_size)
-        self.intermediate_act_fn = ACT2FN[config.hidden_act] \
-            if isinstance(config.hidden_act, str) else config.hidden_act
+        self.intermediate_act_fn = (
+            ACT2FN[config.hidden_act]
+            if isinstance(config.hidden_act, str)
+            else config.hidden_act
+        )
 
     def forward(self, hidden_states):
         hidden_states = self.dense(hidden_states)
@@ -251,7 +273,9 @@ class VisualEncoder(nn.Module):
     def __init__(self, config):
         super(VisualEncoder, self).__init__()
         layer = VisualLayer(config)
-        self.layer = nn.ModuleList([copy.deepcopy(layer) for _ in range(config.num_hidden_layers)])
+        self.layer = nn.ModuleList(
+            [copy.deepcopy(layer) for _ in range(config.num_hidden_layers)]
+        )
 
     def forward(self, hidden_states, attention_mask, output_all_encoded_layers=True):
         all_encoder_layers = []
@@ -283,8 +307,11 @@ class VisualPredictionHeadTransform(nn.Module):
     def __init__(self, config):
         super(VisualPredictionHeadTransform, self).__init__()
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
-        self.transform_act_fn = ACT2FN[config.hidden_act] \
-            if isinstance(config.hidden_act, str) else config.hidden_act
+        self.transform_act_fn = (
+            ACT2FN[config.hidden_act]
+            if isinstance(config.hidden_act, str)
+            else config.hidden_act
+        )
         self.LayerNorm = LayerNorm(config.hidden_size, eps=1e-12)
 
     def forward(self, hidden_states):
@@ -313,7 +340,9 @@ class VisualLMPredictionHead(nn.Module):
 class VisualOnlyMLMHead(nn.Module):
     def __init__(self, config, visual_model_embedding_weights):
         super(VisualOnlyMLMHead, self).__init__()
-        self.predictions = VisualLMPredictionHead(config, visual_model_embedding_weights)
+        self.predictions = VisualLMPredictionHead(
+            config, visual_model_embedding_weights
+        )
 
     def forward(self, sequence_output):
         prediction_scores = self.predictions(sequence_output)
@@ -333,7 +362,9 @@ class VisualOnlyNSPHead(nn.Module):
 class VisualPreTrainingHeads(nn.Module):
     def __init__(self, config, visual_model_embedding_weights):
         super(VisualPreTrainingHeads, self).__init__()
-        self.predictions = VisualLMPredictionHead(config, visual_model_embedding_weights)
+        self.predictions = VisualLMPredictionHead(
+            config, visual_model_embedding_weights
+        )
         self.seq_relationship = nn.Linear(config.hidden_size, 2)
 
     def forward(self, sequence_output, pooled_output):
@@ -386,6 +417,7 @@ class VisualModel(PreTrainedModel):
     all_encoder_layers, pooled_output = model(video, video_mask)
     ```
     """
+
     def __init__(self, config):
         super(VisualModel, self).__init__(config)
         self.embeddings = VisualEmbeddings(config)
@@ -410,13 +442,17 @@ class VisualModel(PreTrainedModel):
         # positions we want to attend and -10000.0 for masked positions.
         # Since we are adding it to the raw scores before the softmax, this is
         # effectively the same as removing these entirely.
-        extended_attention_mask = extended_attention_mask.to(dtype=self.dtype) # fp16 compatibility
+        extended_attention_mask = extended_attention_mask.to(
+            dtype=self.dtype
+        )  # fp16 compatibility
         extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
 
         embedding_output = self.embeddings(video)
-        encoded_layers = self.encoder(embedding_output,
-                                      extended_attention_mask,
-                                      output_all_encoded_layers=output_all_encoded_layers)
+        encoded_layers = self.encoder(
+            embedding_output,
+            extended_attention_mask,
+            output_all_encoded_layers=output_all_encoded_layers,
+        )
         sequence_output = encoded_layers[-1]
         pooled_output = self.pooler(sequence_output)
         if not output_all_encoded_layers:

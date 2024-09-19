@@ -68,7 +68,7 @@ async def send_predict_request(websocket, video_file_name, v_duration, prompt):
             # Wait for the response
             response = await websocket.recv()
             data = json.loads(response)
-            if 'heartbeat' in data:
+            if "heartbeat" in data:
                 continue
             # Check if the message contains 'log' key
             if "log" in data:
@@ -84,8 +84,8 @@ async def send_predict_request(websocket, video_file_name, v_duration, prompt):
                 )
 
             # Check if the message contains 'result' key
-            elif "result" in data:
-                st.session_state.result = data["result"]
+            elif "data" in data:
+                st.session_state.result = data["data"]
                 break  # Exit the loop when result is received
             else:
                 print("Received unknown message:", data)
@@ -94,7 +94,6 @@ async def send_predict_request(websocket, video_file_name, v_duration, prompt):
         print(f"Connection closed with error: {e}")
     except websockets.ConnectionClosedOK:
         print("Connection closed cleanly")
-
 
 
 def video_retrieval_request(prompt, top_k=5):
@@ -322,6 +321,7 @@ with st.form(key="input_form"):
 
 if st.session_state.submitted:
     st.session_state.logs = []
+    st.session_state.result = None
     # Set the number of videos per row
     videos_per_row = 4
     # Create a container for the video panel

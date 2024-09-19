@@ -10,6 +10,7 @@ import json
 import os
 from tqdm import tqdm
 import sys
+import asyncio
 import subprocess
 
 sys.path.append("./EVA_clip")
@@ -134,6 +135,58 @@ async def moment_retrieval(request: momentRetrievalReq):
         return {"message": "Error: Process failed"}
 
 
+async def long_running_task(websocket: WebSocket):
+    print("Starting long running task")
+    command = [
+        "python",
+        "run.py",
+        "--data_dir",
+        "./custom_pipeline/splits/",
+        "--video_feature_dir",
+        "./custom_pipeline/eva_clip_features",
+        "--asr_dir",
+        "./custom_pipeline/ASR",
+        "--asr_feature_dir",
+        "./custom_pipeline/ASR_feats_all-MiniLM-L6-v2",
+        "--eval_batch_size",
+        "1",
+        "--task_moment_retrieval",
+        "--task_moment_segmentation",
+        "--task_step_captioning",
+        "--ckpt_dir",
+        "./checkpoints/hirest_joint_model/",
+        "--end_to_end",
+    ]
+
+    # Run the command and capture output
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        bufsize=1,
+        universal_newlines=True,
+    )
+
+    # Print stdout and stderr in real-time
+    with process.stdout, process.stderr:
+        for stdout_line in process.stdout:
+            await websocket.send_text(json.dumps({"log": stdout_line}))
+        for stderr_line in process.stderr:
+            await websocket.send_text(json.dumps({"log": stderr_line}))
+
+    # Wait for the process to finish and capture return code
+    return_code = process.wait()
+    if return_code == 0:
+        with open("./checkpoints/hirest_joint_model/final_results.json", "r") as file:
+            data = json.load(file)
+
+        # Send result
+        await websocket.send_text(json.dumps({"data": data}))
+    else:
+        await websocket.send_text(json.dumps({"log": "Error: Process failed"}))
+
+
 @router.websocket("/ws/moment_retrieval")
 async def websocket_predict(websocket: WebSocket):
     await websocket.accept()
@@ -147,7 +200,7 @@ async def websocket_predict(websocket: WebSocket):
                 f"{request.video_file_name}": {
                     "relevant": True,
                     "clip": True,
-                    "v_duration": request.v_duration,
+                    "v_duration": math.ceil(request.v_duration),
                     "bounds": [0, 1],
                     "steps": [],
                 }
@@ -157,57 +210,16 @@ async def websocket_predict(websocket: WebSocket):
             json.dump(data, f)
 
         await websocket.send_text(json.dumps({"log": "Moment retrieval started"}))
+        task_future = asyncio.create_task(long_running_task(websocket))
+        print(task_future.done())
 
-        command = [
-            "python",
-            "run.py",
-            "--data_dir",
-            "./custom_pipeline/splits/",
-            "--video_feature_dir",
-            "./custom_pipeline/eva_clip_features",
-            "--asr_dir",
-            "./custom_pipeline/ASR",
-            "--asr_feature_dir",
-            "./custom_pipeline/ASR_feats_all-MiniLM-L6-v2",
-            "--eval_batch_size",
-            "1",
-            "--task_moment_retrieval",
-            "--task_moment_segmentation",
-            "--task_step_captioning",
-            "--ckpt_dir",
-            "./checkpoints/hirest_joint_model/",
-            "--end_to_end",
-        ]
+        while not task_future.done():
+            print(task_future.done())
+            await websocket.send_text(json.dumps({"heartbeat": "alive"}))
+            await asyncio.sleep(3)
 
-        # Run the command and capture output
-        process = subprocess.Popen(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1,
-            universal_newlines=True,
-        )
-
-        # Print stdout and stderr in real-time
-        with process.stdout, process.stderr:
-            for stdout_line in process.stdout:
-                await websocket.send_text(json.dumps({"log": stdout_line}))
-            for stderr_line in process.stderr:
-                await websocket.send_text(json.dumps({"log": stderr_line}))
-
-        # Wait for the process to finish and capture return code
-        return_code = process.wait()
-        if return_code == 0:
-            with open(
-                "./checkpoints/hirest_joint_model/final_end_to_end_results.json", "r"
-            ) as file:
-                data = json.load(file)
-
-            # Send result
-            await websocket.send_text(json.dumps({"data": data}))
-        else:
-            await websocket.send_text(json.dumps({"log": "Error: Process failed"}))
+        # Wait for the task to complete
+        await task_future
 
     except WebSocketDisconnect:
         print("Client disconnected")

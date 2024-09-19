@@ -12,6 +12,7 @@ from tqdm import tqdm
 import sys
 import subprocess
 
+
 def long_running_task():
     """
     Simulates a long-running machine learning task.
@@ -60,7 +61,7 @@ def long_running_task():
         return_code = process.wait()
         if return_code == 0:
             with open(
-                "./checkpoints/hirest_joint_model/final_end_to_end_results.json", "r"
+                "./checkpoints/hirest_joint_model/final_results.json", "r"
             ) as file:
                 data = json.load(file)
 

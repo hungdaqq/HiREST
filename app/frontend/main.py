@@ -384,11 +384,14 @@ if st.session_state.selected_video:
 
 
 if st.session_state.result:
-    st.write("Kết quả dự đoán:")
     result_json = st.session_state.result
-    st.code(result_json)
     video_bound = next(iter(next(iter(result_json.values())).values()))["bounds"]
     times_input = next(iter(next(iter(result_json.values())).values()))["steps"]
+    outer_key = next(iter(result_json)) 
+    video_name = list(result_json[outer_key].keys())[0]
+    st.write(f"Kết quả dự đoán: Video {video_name} có chứa thông tin bạn cần truy vấn từ giây thứ {video_bound[0]} đến giây thứ {video_bound[1]}.")
+    st.write("Kết quả dự đoán:")
+    st.code(result_json)
     if times_input and video_bound:
         try:
             frames = capture_frames_at_times(video_file_path, times_input)

@@ -156,9 +156,15 @@ def video_moment_retrieval(video_file_name, v_duration, prompt):
         return None
 
 
+# async def websocket_client(video_file_name, v_duration, prompt):
+#     url = f"{WS_BASE_URL}/ws/moment_retrieval"
+#     async with websockets.connect(url) as websocket:
+#         await send_predict_request(websocket, video_file_name, v_duration, prompt)
+
 async def websocket_client(video_file_name, v_duration, prompt):
     url = f"{WS_BASE_URL}/ws/moment_retrieval"
-    async with websockets.connect(url) as websocket:
+    # Increase the ping interval and ping timeout values
+    async with websockets.connect(url, ping_interval=300, ping_timeout=None) as websocket:
         await send_predict_request(websocket, video_file_name, v_duration, prompt)
 
 

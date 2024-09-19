@@ -194,7 +194,7 @@ async def websocket_predict(websocket: WebSocket):
         # Receive the message from the client
         data = await websocket.receive_text()
         request = momentRetrievalReq.parse_raw(data)
-
+        print(request)
         data = {
             f"{request.prompt}": {
                 f"{request.video_file_name}": {

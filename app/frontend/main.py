@@ -127,8 +127,9 @@ def video_retrieval_request(prompt, top_k=5):
         print("Response:", response.text)
         return None
 
+
 def video_moment_retrieval(video_file_name, v_duration, prompt):
-    url = f"{HTTP_BASE_URL}/video_retrieval"
+    url = f"{HTTP_BASE_URL}/moment_retrieval"
 
     payload = {
         "video_file_name": video_file_name,
@@ -321,7 +322,6 @@ with st.form(key="input_form"):
 
 if st.session_state.submitted:
     st.session_state.logs = []
-    st.session_state.result = None
     # Set the number of videos per row
     videos_per_row = 4
     # Create a container for the video panel
@@ -360,6 +360,14 @@ st.write("### Kết quả")
 log_placeholder = st.empty()
 
 
+# Display the selected video message if one is selected
+if st.session_state.selected_video:
+    st.write(f"Đã chọn Video: {st.session_state.selected_video}")
+    st.session_state.logs = []
+    video_file_path = os.path.join(VIDEO_DIR, st.session_state.selected_video)
+    duration = get_video_duration(video_file_path)
+    asyncio.run(websocket_client(st.session_state.selected_video, duration, user_input))
+
 # # Display the selected video message if one is selected
 # if st.session_state.selected_video:
 #     st.write(f"Đã chọn Video: {st.session_state.selected_video}")
@@ -367,15 +375,6 @@ log_placeholder = st.empty()
 #     video_file_path = os.path.join(VIDEO_DIR, st.session_state.selected_video)
 #     duration = get_video_duration(video_file_path)
 #     asyncio.run(websocket_client(st.session_state.selected_video, duration, user_input))
-
-# Display the selected video message if one is selected
-if st.session_state.selected_video:
-    st.write(f"Đã chọn Video: {st.session_state.selected_video}")
-    st.session_state.logs = []
-    video_file_path = os.path.join(VIDEO_DIR, st.session_state.selected_video)
-    duration = get_video_duration(video_file_path)
-    st.session_state.result=video_moment_retrieval(st.session_state.selected_video, duration, user_input)
-
 
 
 if st.session_state.result:

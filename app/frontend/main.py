@@ -128,6 +128,33 @@ def video_retrieval_request(prompt, top_k=5):
         print("Response:", response.text)
         return None
 
+def video_moment_retrieval(video_file_name, v_duration, prompt):
+    url = f"{HTTP_BASE_URL}/video_retrieval"
+
+    payload = {
+        "video_file_name": video_file_name,
+        "v_duration": v_duration,
+        "prompt": prompt,
+    }
+    # Send the POST request
+    response = requests.post(url, json=payload)
+
+    # Check for success
+    if response.status_code == 200:
+        print("Request successful!")
+
+        # Extract the dictionary of video file paths and their confidence values from the response
+        response_data = response.json()
+
+        response = response_data["data"]
+
+        return response
+
+    else:
+        print(f"Failed with status code: {response.status_code}")
+        print("Response:", response.text)
+        return None
+
 
 async def websocket_client(video_file_name, v_duration, prompt):
     url = f"{WS_BASE_URL}/ws/moment_retrieval"
@@ -333,13 +360,22 @@ st.write("### Kết quả")
 log_placeholder = st.empty()
 
 
+# # Display the selected video message if one is selected
+# if st.session_state.selected_video:
+#     st.write(f"Đã chọn Video: {st.session_state.selected_video}")
+#     st.session_state.logs = []
+#     video_file_path = os.path.join(VIDEO_DIR, st.session_state.selected_video)
+#     duration = get_video_duration(video_file_path)
+#     asyncio.run(websocket_client(st.session_state.selected_video, duration, user_input))
+
 # Display the selected video message if one is selected
 if st.session_state.selected_video:
     st.write(f"Đã chọn Video: {st.session_state.selected_video}")
     st.session_state.logs = []
     video_file_path = os.path.join(VIDEO_DIR, st.session_state.selected_video)
     duration = get_video_duration(video_file_path)
-    asyncio.run(websocket_client(st.session_state.selected_video, duration, user_input))
+    st.session_state.result=video_moment_retrieval(st.session_state.selected_video, duration, user_input)
+
 
 
 if st.session_state.result:

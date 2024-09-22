@@ -72,16 +72,17 @@ async def send_predict_request(websocket, video_file_name, v_duration, prompt):
                 continue
             # Check if the message contains 'log' key
             if "log" in data:
-                st.session_state.logs.append(data["log"])
-                # Update the display or log placeholder as needed
-                log_placeholder.markdown(
-                    f"""
-                    <div style="border: 2px solid #ddd; border-radius: 5px; padding: 10px; background-color: gray; height: 300px; overflow-y: auto;">
-                        <div>{'<br>'.join(st.session_state.logs)}</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+                # st.session_state.logs.append(data["log"])
+                # # Update the display or log placeholder as needed
+                # log_placeholder.markdown(
+                #     f"""
+                #     <div style="border: 2px solid #ddd; border-radius: 5px; padding: 10px; background-color: gray; height: 300px; overflow-y: auto;">
+                #         <div>{'<br>'.join(st.session_state.logs)}</div>
+                #     </div>
+                #     """,
+                #     unsafe_allow_html=True,
+                # )
+                continue
 
             # Check if the message contains 'result' key
             elif "data" in data:

@@ -16,7 +16,7 @@ class promptCheckRequest(BaseModel):
     prompt: str
 
 
-@router.post("/promptcheck")
+@router.post("/video_retrieval")
 async def promptcheck(request: promptCheckRequest):
     data = {
         "data": {
@@ -57,11 +57,11 @@ async def long_running_task(predict_request: PredictRequest, websocket: WebSocke
 
         for message in log_messages:
             await websocket.send_text(json.dumps({"log": message}))
-            await asyncio.sleep(2)  # Simulate some processing delay
+            await asyncio.sleep(1)  # Simulate some processing delay
 
         # Long-running task simulation with periodic progress updates
         for i in range(0, 100, 10):
-            await asyncio.sleep(5)  # Simulate a chunk of long processing (5s per step)
+            await asyncio.sleep(1)  # Simulate a chunk of long processing (5s per step)
             await websocket.send_text(json.dumps({"progress": f"{i}% complete"}))
 
         # Simulate final result after completion
@@ -78,7 +78,7 @@ async def long_running_task(predict_request: PredictRequest, websocket: WebSocke
         }
 
         # Send final result
-        await websocket.send_text(json.dumps({"result": result}))
+        await websocket.send_text(json.dumps({"data": result}))
 
     except WebSocketDisconnect:
         print("Client disconnected")
@@ -86,7 +86,7 @@ async def long_running_task(predict_request: PredictRequest, websocket: WebSocke
         await websocket.send_text(json.dumps({"log": f"Error: {str(e)}"}))
 
 
-@router.websocket("/ws/predict")
+@router.websocket("/ws/moment_retrieval")
 async def websocket_predict(websocket: WebSocket):
     await websocket.accept()
     try:

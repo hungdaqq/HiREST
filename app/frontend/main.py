@@ -69,6 +69,7 @@ async def send_predict_request(websocket, video_file_name, v_duration, prompt):
             response = await websocket.recv()
             data = json.loads(response)
             if "heartbeat" in data:
+                print("Received heartbeat")
                 continue
             # Check if the message contains 'log' key
             if "log" in data:
@@ -82,6 +83,7 @@ async def send_predict_request(websocket, video_file_name, v_duration, prompt):
                 #     """,
                 #     unsafe_allow_html=True,
                 # )
+                print(data["log"])
                 continue
 
             # Check if the message contains 'result' key
@@ -164,9 +166,10 @@ def video_moment_retrieval(video_file_name, v_duration, prompt):
 
 async def websocket_client(video_file_name, v_duration, prompt):
     url = f"{WS_BASE_URL}/ws/moment_retrieval"
-    # Increase the ping interval and ping timeout values
-    async with websockets.connect(url, ping_interval=300, ping_timeout=None) as websocket:
-        await send_predict_request(websocket, video_file_name, v_duration, prompt)
+    with st.spinner("Đang phân tích dữ liệu..."):
+        # Open the websocket connection
+        async with websockets.connect(url, ping_interval=300, ping_timeout=None) as websocket:
+            await send_predict_request(websocket, video_file_name, v_duration, prompt)
 
 
 # Set the layout of the Streamlit app
